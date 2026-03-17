@@ -36,7 +36,7 @@ let scanApDynamicShowSubscription: eventLoop.Subscription = null;
 let scanApSsidInfo: string[] = [];
 let scanApSsidList: string[] = [];
 let scanApSsidObjects = {};
-let scanApDisplayChannelInfoSubs: Object[] = [];
+let scanApDisplayChannelInfoSubs: eventLoop.Subscription[] = [];
 
 // System
 let backButtonEvents: eventLoop.Subscription = null;
