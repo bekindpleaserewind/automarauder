@@ -1,5 +1,4 @@
 // import modules
-print("scanApDisplayChannelInfo")
 // caution: `eventLoop` HAS to be imported before `gui`, and `gui` HAS to be
 // imported before any `gui` submodules.
 import * as eventLoop from "@next-flip/fz-sdk-mntm/event_loop";
@@ -162,15 +161,11 @@ function scanApStop() {
 }
 
 function scanApGetChannelInfo() {
-    print("scanApGetChannelInfo");
-
     if(!scanApRunning && serial_port_open) {
-        print("Here we go");
         // clear buffer
         serial_read();
 
         // send command
-        print("Here 1");
         serial_write("list -a");
 
         if(scanApChannelInfoOneshot) {
@@ -180,7 +175,6 @@ function scanApGetChannelInfo() {
 
         // process results after 2 seconds to ensure data is buffered
         scanApChannelInfoOneshot = eventLoop.subscribe(eventLoop.timer("oneshot", 2000), function(sub) {
-            print("Here 2");
             let data: string = serial_expect("list -a");
             let lines: string[] = splitByNewLine(data);
             let tmp_aps: string[] = [];
@@ -228,10 +222,6 @@ function scanApGetChannelInfo() {
                 first = false;
             }
 
-            for(let k in scanApSsidInfo) {
-                print("Scanned ", k);
-            }
-
             scanApSsidObjects = [];
 
             for(let ssid in scanApSsidInfo) {
@@ -271,12 +261,10 @@ function scanApGetChannelInfo() {
 }
 
 function scanApDisplayChannelInfo() {
-    print("scanApDisplayChannelInfo")
     views.scan_ap_dynamic_show = submenu.makeWith({}, scanApSsidList);
 
     // Reset information views for each SSID
     if(scanApDisplayChannelInfoSubs.length > 0) {
-        print("Resetting views");
         for(let index = 0; index < scanApDisplayChannelInfoSubs.length; index++) {
             scanApDisplayChannelInfoSubs[index].cancel();
         }
@@ -286,12 +274,10 @@ function scanApDisplayChannelInfo() {
     // Build information views for each SSID
     new_views = [];
 
-    print("Building scanApDisplayChannelInfoSubs");
     for(let ssid in scanApSsidObjects) {
         new_views.push([scanApSsidObjects[ssid].view, views.scan_ap_dynamic_show])
         let sub = eventLoop.subscribe(scanApSsidObjects[ssid].view.input, function(subscription, button: string, _gui) {
             if(button === "center") {
-                print("GOT CENTER BUTTON");
                 scanApStop();
                 if(serial_port_open) {
                     serial_close();
@@ -302,18 +288,9 @@ function scanApDisplayChannelInfo() {
         scanApDisplayChannelInfoSubs.push(sub);
     }
 
-    print("Configuring back buttons");
     configureBackButton();
-    print("Configured back buttons");
-
-    // Display list of SSIDs
-    //if(scanApDynamicShowSubscription) {
-    //    print("Cancel scanApDynamicShowSubscription")
-    //    scanApDynamicShowSubscription.cancel();
-    //}
 
     if(scanApSsidList.length === 0) {
-        print("No SSIDs found");
         if(scanApNoResultSubscription) {
             scanApNoResultSubscription.cancel();
             scanApNoResultSubscription = null;
@@ -329,35 +306,22 @@ function scanApDisplayChannelInfo() {
         }, eventLoop);
         gui.viewDispatcher.switchTo(views.scan_ap_no_results);
     } else {
-        print("Creating subscribe for scan_ap_dynamic_show");
-        if(scanApDynamicShowSubscription) {
-            print("Cancel scanApDynamicShowSubscription");
-            //scanApDynamicShowSubscription.cancel();
-            //scanApDynamicShowSubscription = null;
-            print("Cancel scanApDynamicShowSubscription done");
-        }
-
-        print("Subscribing scanApDynamicShowSubscription for scan_ap_dynamic_show_chosen")
         scanApDynamicShowSubscription = eventLoop.subscribe(views.scan_ap_dynamic_show.chosen, function(sub, index: number, eventLoop) {
-            print("Got index ", index);
             let ssid = scanApSsidList[index];
             gui.viewDispatcher.switchTo(scanApSsidObjects[ssid].view)
         }, eventLoop);
 
-        print("showing scan_ap_dynamic_show");
         gui.viewDispatcher.switchTo(views.scan_ap_dynamic_show);
     }
-
-    print("Done with scanApDisplayChannelInfo");
 }
 
 // Deauthed PMKID sniffing
 function deauth_sniff_pmkid_start() {
-    print("Actively deauthing and sniffing PMKID")
+    print("TBD")
 }
 
 function deauth_sniff_pmkid_stop() {
-    print("Stopping deauth attack and sniffing PMKID")
+    print("TBD")
 }
 
 // Utilities
@@ -403,19 +367,15 @@ function removeListDups(list: string[]) {
 // system
 function configureBackButton() {
     if(backButtonEvents) {
-        print("backButtonEvents cancel");
         backButtonEvents.cancel();
         backButtonEvents = null;
-        print("backButtonEvents done");
     }
 
     backButtonEvents = eventLoop.subscribe(gui.viewDispatcher.navigation, function(_sub, _item, eventLoop) {
         let found = false
 
         for(let i = 0; i < new_views.length; i++) {
-            print("Checking ", i);
             if(gui.viewDispatcher.currentView === new_views[i][0]) {
-                print("Found");
                 found = true
                 gui.viewDispatcher.switchTo(new_views[i][1]);
             }
@@ -511,21 +471,18 @@ eventLoop.subscribe(views.deauth_sniff_pmkid_start.input, function(sub, button, 
 
 eventLoop.subscribe(views.configure.chosen, function(sub, index, eventLoop) {
     if(index === 0) {
-        print("configure deauth and sniff pmkid");
+        print("TBD");
     } else if(index == 1) {
         gui.viewDispatcher.switchTo(views.scan_ap_configure);
     }
 }, eventLoop);
 
 eventLoop.subscribe(views.scan_ap_configure.input, function(sub, str) {
-    print(str);
     gui.viewDispatcher.switchTo(views.configure);
 });
 
 // main
-print("Main configurebackbutton");
 configureBackButton();
-print("Main configurebackbutton done");
 
 eventLoop.subscribe(views.root.chosen, function (subscription, index, eventLoop) {
     if(index === 0) {
