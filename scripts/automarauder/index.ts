@@ -1,14 +1,11 @@
-// import modules
-// caution: `eventLoop` HAS to be imported before `gui`, and `gui` HAS to be
-// imported before any `gui` submodules.
 import * as eventLoop from "@next-flip/fz-sdk-mntm/event_loop";
 import * as gui from "@next-flip/fz-sdk-mntm/gui";
+import * as loadingView from "@next-flip/fz-sdk-mntm/gui/loading";
 import * as dialog from "@next-flip/fz-sdk-mntm/gui/dialog";
 import * as textInput from "@next-flip/fz-sdk-mntm/gui/text_input";
 import * as submenu from "@next-flip/fz-sdk-mntm/gui/submenu";
 import * as serial from "@next-flip/fz-sdk-mntm/serial";
 
-// Interfaces
 export interface ScanAPInfo {
     ssid: string;
     channels: number[];
@@ -30,12 +27,13 @@ export interface ScanAPApInfoObj {
     security: string;
 }
 
-/////////////
-// Classes //
-/////////////
+let CHANNELS: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
-// Utility Library
 let UtilitiesClass = {
+    init: function() {
+        _utility.self = this;
+    },
+
     splitByNewLine: function(str: string): string[] {
         const lines: string[] = [];
         let start = 0;
@@ -73,100 +71,132 @@ let UtilitiesClass = {
         }
 
         return(out);
-    }
-};
-
-// System Library
-let SystemClass = {
-    init: function() {
-        this.views = {};
-        this.serial = _serial;
-        this.scanap = _scanap;
-
-        this.newViews = [];
-        this.events = null;
     },
 
-    setupBackButtons: function() {
-        if(this.events) {
-            this.events.cancel();
-            this.events = null;
+    getObjectProp: function(obj: any, key: string): any {
+        for(let k in obj) {
+            if(k === key) {
+                return obj[k];
+            }
+        }
+        return null;
+    },
+};
+
+let ViewClass = {
+    init: function() {
+        this._navMap = {};
+        this._navCleanup = {};
+        this._back = null;
+    },
+
+    addView: function(source: string, target: string, view: Object, callback: Function) {
+        this._navMap[source] = {
+            source: source,
+            target: target,
+            view: view,
+            callback: callback,
+            connected: callback ? true : false,
+            subscription: null,
+            subscribed: false,
+        }
+    },
+
+    hasView: function(source: string) {
+        for(let view in this._navMap) {
+            if(source === view) {
+                return(this._navMap[source].view);
+            }
+        }
+        return(false);
+    },
+
+    subscribe: function(source: string, type: string, callback: any) {
+        let contract = _utility.getObjectProp(this._navMap[source].view, type)
+        if(contract) {
+            this._navMap[source].subscription = eventLoop.subscribe(contract, callback);
+            this._navMap[source].subscribed = true;
+        }
+    },
+
+    // Cleanup action handler — maps action names to functions
+    cleanup: function(source: string) {
+        this._navMap[source].callback();
+    },
+
+    remove: function(source: string) {
+        if(this._navMap[source].subscribed) {
+            this._navMap[source].subscription.cancel();
+            this._navMap[source].subscription = null;
+            this._navMap[source].subscribed = false;
+            return(true);
+        }
+        return(false);
+    },
+
+    // Resolve the key for the current view by iterating the
+    // nav map and matching against the actual view objects.
+    // Required because mJS can't do reverse object lookups.
+    current: function(): string {
+        let current = gui.viewDispatcher.currentView;
+
+        for(let key in this._navMap) {
+            if(this._navMap[key] === current) {
+                return key;
+            }
         }
 
-        this.events = eventLoop.subscribe(gui.viewDispatcher.navigation, function(_sub, _item, eventLoop) {
-            let found = false
+        return null;
+    },
 
-            for(let i = 0; i < this.newViews.length; i++) {
-                if(gui.viewDispatcher.currentView === this.newViews[i][0]) {
-                    found = true
-                    gui.viewDispatcher.switchTo(this.newViews[i][1]);
-                }
+    show: function(source: string) {
+        if(this._navMap[source].view !== null) {
+            print("Switching to view ", source);
+            gui.viewDispatcher.switchTo(this._navMap[source].view);
+        } else {
+            print("It's NULL");
+        }
+    },
+
+    back: function() {
+        if(this._back) {
+            this._back.cancel();
+            this._back = null;
+        }
+
+        this._back = eventLoop.subscribe(gui.viewDispatcher.navigation, function(sub, item) {
+            let source = this.current();
+
+            // safe failback
+            if(source === null) {
+                eventLoop.stop();
+                return
             }
 
-            // run globals
-            if(!found) {
-                if(
-                    gui.viewDispatcher.currentView === this.views.getView("configure") ||
-                    gui.viewDispatcher.currentView === this.views.getView("scan_ap_confirm") || 
-                    gui.viewDispatcher.currentView === this.views.getView("deauth_sniff_pmkid_confirm") 
-                ) {
-                    this.scanap.stop();
-                    if(this.serial.isOpen()) {
-                        this.serial.close();
-                    }
-                    gui.viewDispatcher.switchTo(this.views.getView("root"));
-                } else if(gui.viewDispatcher.currentView === this.views.getView("scan_ap_configure")) {
-                    gui.viewDispatcher.switchTo(this.views.getView("configure"));
-                } else if(gui.viewDispatcher.currentView === this.views.getView("scan_ap_start")) {
-                    this.scanap.stop();
-                    if(this.serial.isOpen()) {
-                        this.serial.close();
-                    }
-                    gui.viewDispatcher.switchTo(this.views.getView("scan_ap_confirm")); 
-                } else if(gui.viewDispatcher.currentView === this.views.getView("deauth_sniff_pmkid_start")) {
-                    deauth_sniff_pmkid_stop();
-                    gui.viewDispatcher.switchTo(this.views.getView("deauth_sniff_pmkid_confirm"));
-                } else if(gui.viewDispatcher.currentView === this.views.scan_ap_show_ssid_list) {
-                    gui.viewDispatcher.switchTo(this.views.scan_ap_confirm);
-                } else if(gui.viewDispatcher.currentView === this.views.scan_ap_no_results) {
-                    this.scanap.stop();
-                    if(this.serial.isOpen()) {
-                        this.serial.close();
-                    }
-                    gui.viewDispatcher.switchTo(this.views.scan_ap_confirm);
-                } else {
-                    eventLoop.stop();
-                }
+            if(this._navMap[source].connected !== null) {
+                this._navMap[source].callback();
             }
-        }, eventLoop);
+
+            if(this._navMap[source].target !== null) {
+                gui.viewDispatcher.switchTo(this._navMap[source].target);
+            }
+        });
     },
 
-    setupViews: function(views: {}) {
-        this.views = views;
-    },
-
-    getViewByObject: function<T, K extends keyof T>(obj: T, key: K): T[K] {
-        return(obj[key]);
-    },
-
-    getView: function(key: string) {
-        return(this.getViewByObject(this.views, key))
-    },
-
-    setView: function(key: string, view: Object) {
-        this.views[key] = view;
+    timer: function(timeout: number, callback: Function) {
+        this.subscribe(eventLoop.timer("oneshot", timeout), callback);
     },
 };
 
-// Serial Library
 let SerialClass = {
     init: function() {
-        this.open = false;
+        _serial.self = this;
+        this.serial_is_open = false;
     },
 
     open: function() {
         serial.setup("usart", 115200);
-        this.open = true;
+        this.serial_is_open = true;
     },
 
     read: function() {
@@ -183,7 +213,7 @@ let SerialClass = {
         return(data);
     },
 
-    expect: function(pattern) : string {
+    expect: function(pattern: string) : string {
         let data: string;
         if(serial.expect(pattern) === 0) {
             data = this.read();
@@ -191,34 +221,191 @@ let SerialClass = {
         return(data);
     },
 
-    write: function(str) {
+    write: function(str: string) {
+        if(!this.isOpen()) {
+            this.open();
+        }
         serial.write(str + "\n");
     },
 
     close: function() {
         serial.end();
-        this.open = false;
+        this.serial_is_open = false;
     },
 
     isOpen: function() {
-        return(this.open);
+        return(this.serial_is_open);
     }
 };
 
-// ScanAP Library
+let WifiClass = {
+    init: function() {
+        _wifi.self = this;
+        this.serial = _serial;
+        this.utility = _utility;
+        this.apListByIndex = [];
+        this.apListBySSID = {};
+
+        this.index = -1;
+        this.selected = false;
+
+        this.rebooting = false;
+        this.rebootTimeout = 5;
+    },
+
+    setIndex: function(index: number) {
+        this.index = index;
+    },
+
+    getRebootTimeout: function() {
+        return(this.rebootTimeout);
+    },
+
+    setRebootTimeout: function(timeout: number) {
+        this.rebootTimeout = timeout;
+    },
+
+    checkAndOpenSerial: function() {
+        if(!this.serial.isOpen()) {
+            this.serial.open();
+        }
+    },
+
+    checkAndCloseSerial: function() {
+        if(this.serial.isOpen()) {
+            this.serial.close();
+        }
+    },
+
+    listAps: function() {
+        this.apListBySSID = {};
+        this.apListByIndex = [];
+
+        this.checkAndOpenSerial();
+        this.serial.write("list -a");
+
+        let data: string = this.serial.expect("list -a");
+        print("<DEBUG>");
+        print(data);
+        print("</ENDDEBUG>");
+        let lines: string[] = this.utility.splitByNewLine(data);
+
+        for(let i = 1; i < lines.length-2; i++) {
+            let line = lines[i].slice(1, lines[i].length);
+
+            let index = parseInt(line.slice(1, line.indexOf(']')));
+
+            let s = line.slice(line.indexOf('CH:')+3, line.length);
+            let channel: number = parseInt(s.slice(0, line.indexOf(']')));
+
+            let ssid: string = line.slice(line.indexOf(' ')+1, line.length);
+            ssid = ssid.slice(0, ssid.indexOf(' -'));
+
+            this.apListByIndex[index] = {
+                index: index,
+                channel: channel,
+                ssid: ssid,
+            };
+
+            this.apListBySSID[ssid] = this.apListByIndex[index];
+        }
+
+        this.checkAndCloseSerial();
+    },
+
+    scanAps: function() {
+        this.checkAndOpenSerial();
+        this.serial.write("scanap");
+        this.serial.expect("scanap");
+        print("Scanning initiated")
+        this.checkAndCloseSerial();
+    },
+
+    stopScanAps: function() {
+        this.checkAndOpenSerial();
+        this.serial.write("stopscan");
+        this.serial.expect("stopscan");
+        print("Scanning terminated");
+        this.checkAndCloseSerial();
+    },
+
+    getApsBySSID: function() {
+        return(this.apListBySSID);
+    },
+
+    getApsByIndex: function() {
+        return(this.apListByIndex);
+    },
+
+    selectAp: function(index: number) {
+        if(this.selected) {
+            this.unselectAp();
+        }
+
+        this.setIndex(index);
+        this.checkAndOpenSerial();
+
+        for(let i = 0; i < this.apListByIndex.length; i++) {
+            if(this.apListByIndex[i].index === index) {
+                this.serial.write("select -a " + this.index.toString());
+                let data = this.serial.expect("select -a");
+                if(data.indexOf('1 selected') >= 0) { 
+                    this.selected = true;
+                }
+            }
+        }
+    },
+
+    unselectAp: function() {
+        this.checkAndOpenSerial();
+
+        if(this.selected) {
+            this.serial.write("select -a " + this.index.toString());
+            let data = this.serial.expect("select -a");
+            if(data.indexOf('1 unselected') >= 0) {
+                this.selected = false;
+                this.index = -1;
+            }
+            print(data);
+        }
+    },
+
+    cloneApMac: function() {
+        this.serial.write("cloneapmac -a " + this.index.toString());
+        let data = this.serial.expect("cloneapmac -a");
+        print(data);
+    },
+
+    reboot: function() {
+        if(!this.rebooting) {
+            this.checkAndOpenSerial();
+            this.serial.write("reboot");
+            this.index = -1;
+            this.selected = false;
+            this.rebooting = false;
+        }
+    }
+}
+
 let ScanAPClass = {
     init: function() {
-        this.utility = _utility;
-        this.serial = _serial
-        this.system = _system
+        _scanap.self = this;
 
-        this.running = false
+        this.utility = _utility;
+        this.serial = _serial;
+        this.wifi = _wifi;
+
+        this.running = false;
         this.timeout = 5;
+
+        this.newViews = [];
+
+        this.apsByIndex = [];
+        this.apsBySSID = {};
 
         this.selectedSsid = null;
         this.ssidList = [];
-        this.ssidObjects = {}
-        this.displayChannelInfoSubs = {};
+        this.ssidObjects = {};
         this.noResultSubscription = null;
 
         this.startOneshot = null;
@@ -242,413 +429,233 @@ let ScanAPClass = {
                 this.startOneshot = null;
             }
 
-            this.serial.open()
-            this.serial.write("scanap")
+            this.wifi.scanAps();
 
             this.startOneshot = eventLoop.subscribe(eventLoop.timer("oneshot", this.timeout * 1000), function(sub) {
-                if(this.running) {
-                    this.stop();
-                    this.getInfo();
+                if(_scanap.running) {
+                    _wifi.stopScanAps();
+                    _scanap.running = false;
+                    _scanap.self.getInfo();
                 }
             }, eventLoop);
         }
     },
 
     stop: function() {
-        if(this.running && this.serial.isOpen()) {
-            this.serial.write("stopscan");
+        if(this.running) {
+            _wifi.stopScanAps();
             this.running = false;
         }
     },
 
-    getApInfo: function(index: string) {
-        if(!this.serial.isOpen()) {
-            this.serial.open();
-        }
-
-        this.serial.write("info -a " + index);
-
-        let data: string = this.serial.expect("info -a");
-        let lines: string[] = this.utility.splitByNewLine(data);
-        let info: ScanAPApInfoObj;
-
-        for(let i = 0; i < lines.length; i++) {
-            if(lines[i].indexOf('ESSID: ') >= 0) {
-                // Get ESSID
-                info.essid = lines[i].slice(7, );
-            }
-
-            let start: number = lines[i].indexOf()
-        }
-    },
-
     getInfo: function() {
-        if(!this.running && this.serial.isOpen()) {
-            // clear buffer
-            this.serial.read();
-
-            // send command
-            this.serial.write("list -a");
+        if(!_scanap.running) {
+            this.ssidList = [];
 
             if(this.channelInfoOneshot) {
                 this.channelInfoOneshot.cancel();
                 this.channelInfoOneshot = null;
             }
 
-            // process results after 2 seconds to ensure data is buffered
-            this.channelInfoOneshot = eventLoop.subscribe(eventLoop.timer("oneshot", 2000), function(sub) {
-                let data: string = this.serial.expect("list -a");
-                let lines: string[] = this.utility.splitByNewLine(data);
-                let tmp_aps: string[] = [];
-                let tmp_all_ssids: string[] = [];
+            this.wifi.listAps()
+            this.apsByIndex = this.wifi.getApsByIndex();
+            this.apsBySSID = this.wifi.getApsBySSID();
 
-                // init 2.4 GHz
-                for(let i = 0; i < 14; i++) {
-                    tmp_aps[i] = [];
-                }
+            for(let ssid in this.apsBySSID) {
+                this.ssidList.push(ssid);
+            }
+            this.ssidList = this.utility.removeListDups(_scanap.self.ssidList);
 
-                // pull out channel and ssid from each line
-                for(let i = 0; i < lines.length; i++) {
-                    let start: number = lines[i].indexOf(']');
-                    let index = lines[i].slice(1, start);
-
-                    if(start !== -1) {
-                        let line: string = lines[i].slice(++start);
-                        let c: number = line.indexOf(']');
-                        let channel: number = parseInt(line.slice(4, c));
-                        c += 2;
-
-                        line = line.slice(c);
-                        c = line.indexOf(' ');
-                        let ssid: string = line.slice(0, ++c);
-
-                        tmp_aps[channel].push({
-                            ssid: ssid,
-                            index: index,
-                        });
-
-                        tmp_all_ssids.push(ssid);
-                    }
-                }
-
-                // build list of ssid to channels mappings
-                let ssidInfo = [];
-
-                for(let channel = 0; channel < tmp_aps.length; channel++) {
-                    let first = true;
-                    let ssids: string[] = this.utility.removeListDups(tmp_aps[channel]);
-
-                    for(let ssid_index = 0; ssid_index < ssids.length; ssid_index++) {
-                        if(first) {
-                            ssidInfo[ssids[ssid_index].ssid] = [channel];
-                        } else {
-                            ssidInfo[ssids[ssid_index].ssid].push(channel);
-                        }
-                    }
-
-                    first = false;
-                }
-
-                this.ssidObjects = {};
-
-                for(let ssid in ssidInfo) {
-                    let channels: number[] = ssidInfo[ssid];
-                    let channel_string: string = '';
-                    let first: boolean = true;
-
-                    for(let i = 0; i < channels.length; i++) {
-                        if(first) {
-                            channel_string = channels[i].toString();
-                            first = false;
-                        } else {
-                            channel_string = channel_string + ", " + channels[i].toString();
-                        }
-                    }
-
-                    let obj: ScanAPInfo = {
-                        channels: channels,
-                        ssid: ssid,
-                        view: dialog.makeWith({
-                            text: "SSID: " + ssid + "\nChannels: " + channel_string,
-                            center: "Okay",
-                        }), 
-                    };
-
-                    this.ssidObjects[ssid] = [obj];
-                }
-
-                // save a master list of ssids found during this scan
-                this.ssidList = this.utility.removeListDups(tmp_all_ssids);
-
+            if(this.serial.isOpen()) {
                 this.serial.close();
+            }
 
-                //scanApDisplayChannelInfo();
-                print("Displaying SSIDs");
-                this.displaySSIDs();
-            }, eventLoop);
+            this.displaySSIDs();
         }
     },
 
     displaySSIDs: function() {
-        // Displays the list of APs scanned
-        this.system.setView("scan_ap_show_ssid_list", submenu.makeWith({}, this.ssidList));
-
-        // process chosen ssid from list of discovered APs
-        eventLoop.subscribe(this.system.getView("scan_ap_show_ssid_list").chosen, function(sub, item) {
-            this.selectedSsid = item;
-            gui.viewDispatcher.switchTo(this.system.getView("views.scan_ap_options"));
-        }, eventLoop);
-
-        // process chosen ssid option
-        eventLoop.subscribe(this.system.getView("scan_ap_options").chosen, function(sub, item) {});
-        gui.viewDispatcher.switchTo(this.system.getView("scan_ap_show_ssid_list"));
-    },
-
-    displayChannelInfo: function() {
-        // Reset information views for each SSID
-        for(let ssid in this.displayChannelInfoSubs) {
-            this.displayChannelInfoSubs[ssid].cancel();
+        if(!_view.hasView('scan_ap_show_ssid_list')) {
+            print("we do not have the scan_ap_show_ssid_list view")
+            _view.addView("scan_ap_show_ssid_list", null, submenu.makeWith({}, _scanap.ssidList), null);
         }
-        this.displayChannelInfoSubs = {};
 
-        // Build information views for each SSID
-        this.newViews = [];
+        _view.subscribe("scan_ap_show_ssid_list", "chosen", function(sub, index: number) {
+            _scanap.selectedSsid = _scanap.ssidList[index];
 
-        for(let ssid in this.ssidObjects) {
-            this.newViews.push([this.ssidObjects[ssid][0].view, this.system.getView("scan_ap_options")])
-            let sub = eventLoop.subscribe(this.ssidObjects[ssid][0].view.input, function(subscription, button: string, _gui) {
-                if(button === "center") {
-                    this.stop();
-                    if(this.serial.isOpen()) {
-                        this.serial.close();
+            _view.subscribe("scan_ap_options", "chosen", function(sub, index: number) {
+                if(!_view.hasView('scan_ap_mac_spoofing_enable')) {
+                    _view.addView("scan_ap_mac_spoofing_enable", null, dialog.makeWith({
+                        header: "MAC Spoofing",
+                        text: _scanap.selectedSsid,
+                        left: "Enable",
+                        right: "Disable",
+                        center: "Back",
+                    }), null);
+                }
+
+                _view.subscribe("scan_ap_mac_spoofing_enable", "input", function(sub, button: string, _gui) {
+                    if(button === "right") {
+                        print("Disabled MAC Spoofing");
+                        _wifi.reboot();
+                        _view.addView("scan_ap_mac_spoofing_status_disabled", null, dialog.makeWith({
+                            header: "Successful!",
+                            text: "Marauder was Reset",
+                            center: "Back",
+                        }), null);
+
+                        _view.subscribe("scan_ap_mac_spoofing_status_disabled", "input", function(sub, button: string, _gui) {
+                            if(button === "center") {
+                                _view.show('scan_ap_mac_spoofing_enable');
+                            }
+                        });
+
+                        _view.timer(_wifi.getRebootTimeout() * 1000, function(sub) {
+                            _view.show("scan_ap_mac_spoofing_status_disabled");
+                        });
+
+                        _view.show("loading");
+                    } else if(button === "center") {
+                        _view.show("scan_ap_mac_spoofing_enable");
+                    } else if(button === "left") {
+                        print("MAC Spoofing")
+                        print("SSID ", _scanap.apsBySSID[_scanap.selectedSsid].ssid);
+                        print("INDEX ", _scanap.apsBySSID[_scanap.selectedSsid].index);
+                        print("CHANNEL ", _scanap.apsBySSID[_scanap.selectedSsid].channel);
+                        _wifi.selectAp(_scanap.apsBySSID[_scanap.selectedSsid].index);
+                        _wifi.cloneApMac();
                     }
+                });
 
-                    // we do this elsewhere now
-                    // need to figure out what to replace with
-                    //gui.viewDispatcher.switchTo(_system.views.scan_ap_show_ssid_list);
-                }
+                _view.show("scan_ap_mac_spoofing_enable");
             }, eventLoop);
-            this.displayChannelInfoSubs[ssid] = sub;
-        }
 
-        this.system.setupBackButton();
+            _view.show("scan_ap_options");
+        });
 
-        if(this.ssidList.length === 0) {
-            if(this.noResultSubscription) {
-                this.noResultSubscription.cancel();
-                this.noResultSubscription = null;
-            }
-            this.noResultSubscription = eventLoop.subscribe(this.system.getView("scan_ap_no_results").input, function(subscription, button, _gui) {
-                if(button === "center") {
-                    this.stop()
-                    if(this.serial.isOpen()) {
-                        this.serial.close();
-                    }
-                    gui.viewDispatcher.switchTo(this.system.getView("scan_ap_confirm"));
-                }
-            }, eventLoop);
-            gui.viewDispatcher.switchTo(this.system.getView("scan_ap_no_results"));
-        } else {
-            /*
-            scanApOptionsSubscription = eventLoop.subscribe(_system.views.scan_ap_options.chosen, function(sub, index) {
-                if(index === 0) {
-                    gui.viewDispatcher.switchTo(scanApSsidObjects[this.selectedSsid][0].view)
-                } else if(index == 1) {
-                    
-                }
-            })
-            */
-
-            // we do this elsewhere now
-            // figure out what to replace this with
-        /*
-            scanApDynamicShowSubscription = eventLoop.subscribe(_system.views.scan_ap_show_ssid_list.chosen, function(sub, index: number, eventLoop) {
-                let ssid = scanApSsidList[index];
-                this.selectedSsid = ssid;
-                //gui.viewDispatcher.switchTo(scanApSsidObjects[ssid][0].view)
-                gui.viewDispatcher.switchTo(_system.views.scan_ap_options);
-            }, eventLoop);
-            gui.viewDispatcher.switchTo(_system.views.scan_ap_show_ssid_list);
-            */
-        }
+        _view.show("scan_ap_show_ssid_list");
     },
 };
 
-// Deauthed PMKID sniffing
-function deauth_sniff_pmkid_start() {
-    print("TBD")
-}
+print("main");
 
-function deauth_sniff_pmkid_stop() {
-    print("TBD")
-}
+let _serial = (Object as any).create(SerialClass);
+_serial.init();
 
+let _utility = (Object as any).create(UtilitiesClass);
+_utility.init();
 
-//////////
-// Main //
-//////////
+let _view = (Object as any).create(ViewClass);
+_view.init();
 
-//////////////////////
-// Global variables //
-//////////////////////
+let _wifi = (Object as any).create(WifiClass);
+_wifi.init();
 
-// Objects
-let _utility = (Object as any).create.bind(UtilitiesClass);
-let _system = (Object as any).create.bind(SystemClass);
-let _serial = (Object as any).create.bind(SerialClass);
-let _scanap = (Object as any).create.bind(ScanAPClass);
+let _scanap = (Object as any).create(ScanAPClass);
+_scanap.init();
 
-// ScanAP Library
-let scanApDynamicShowSubscription: eventLoop.Subscription = null;
-let scanApOptionsSubscription: eventLoop.Subscription = null;
+// Build base views
+print("Build libraries");
 
-///////////////////////////
-// ScanAP                //
-///////////////////////////
-// Scan for APs and list //
-///////////////////////////
+_view.addView("root", null, submenu.makeWith({}, [
+    "Scanning",
+    "Configure"
+]), null);
 
-// confirm
-eventLoop.subscribe(_system.getView("scan_ap_confirm").input, function(subscription, button, _gui) {
+_view.addView("configure", "root", submenu.makeWith({}, [
+    "MAC Address Spoofing",
+]), function() {
+    _scanap.stop();
+});
+
+_view.addView("scan_ap_confirm", "root", dialog.makeWith({
+    header: "Scan Access Points",
+    text: "Scan for APs",
+    center: "Start",
+}), function() {
+    _scanap.stop();
+});
+
+_view.addView("scan_ap_configure", "configure",textInput.makeWith({
+    minLength: 1,
+    maxLength: 4,
+    header: "Scan AP Timeout",
+    defaultText: "5",
+    defaultTextClear: false,
+}), null);
+
+_view.addView("scan_ap_start", "scan_ap_confirm", dialog.makeWith({
+    header: "Scanning",
+    text: "Scanning for APs...",
+    center: "Stop",
+}), function() {
+    _scanap.stop();
+});
+
+_view.addView("scan_ap_no_results", "scan_ap_confirm", dialog.makeWith({
+    text: "No Access Points Found",
+    center: "Back",
+}), null);
+
+_view.addView("scan_ap_options", "scan_ap_show_ssid_list", submenu.makeWith({}, [
+    "Information",
+    "MAC Spoofing",
+]), null);
+
+_view.addView("mac_spoof_root", null, submenu.makeWith({}, [
+    "Station Address",
+    "Access Point Address",
+]), null);
+
+_view.addView("loading", null, loadingView.make(), null);
+_view.addView("mac_spoof_configure_station", null, null, null);
+_view.addView("mac_spoof_configure_ap", null, null, null);
+_view.addView("scan_ap_mac_spoofing_enable", null, null, null);
+_view.addView("scan_ap_show_ssid_list", null, null, null);
+
+print("Added views");
+
+// Subscriptions for views
+_view.subscribe("scan_ap_confirm", "input", function(subscription, button) {
     if(button === "center") {
-        gui.viewDispatcher.switchTo(_system.getView("scan_ap_start"));
+        _view.show("scan_ap_confirm");
         _scanap.start();
     }
-}, eventLoop);
+});
 
 // start
-eventLoop.subscribe(_system.getView("scan_ap_start").input, function(sub, button, _gui) {
+_view.subscribe("scan_ap_start", "input", function(sub, button,) {
     if(button === "center") {
         _scanap.stop();
-        if(_serial.isOpen()) {
-            _serial.close();
-        }
-        gui.viewDispatcher.switchTo(_system.getView("scan_ap_confirm"));
+        _view.show("scan_ap_confirm");
     }
-}, eventLoop);
+});
 
-////////////////////////////
-// Deauth and sniff PMKID //
-////////////////////////////
-
-// start
-eventLoop.subscribe(_system.getView("deauth_sniff_pmkid_confirm").input, function(subscription, button, _gui) {
-    if(button === "center") {
-        deauth_sniff_pmkid_start();
-        gui.viewDispatcher.switchTo(_system.getView("deauth_sniff_pmkid_start"));
-    }
-}, eventLoop);
-
-// stop
-eventLoop.subscribe(_system.getView("deauth_sniff_pmkid_start").input, function(sub, button, _gui) {
-    if(button === "center") {
-        deauth_sniff_pmkid_stop();
-        gui.viewDispatcher.switchTo(_system.getView("deauth_sniff_pmkid_confirm"));
-    }
-}, eventLoop);
-
-///////////////
-// Configure //
-///////////////
-
-// root configure menu 
-eventLoop.subscribe(_system.getView("configure").chosen, function(sub, index, eventLoop) {
+// configure menu 
+_view.subscribe("configure", "chosen", function(sub, index, eventLoop) {
     if(index === 0) {
         print("TBD");
     } else if(index === 1) {
-        gui.viewDispatcher.switchTo(_system.getView("scan_ap_configure"));
+        _view.show("scan_ap_configure");
     } else if(index === 2) {
-        gui.viewDispatcher.switchTo(_system.getView("mac_spoof_root"));
+        _view.show("mac_spoof_root");
     }
-}, eventLoop);
-
-// mac spoofing
-/*
-eventLoop.subscribe(_system.views.mac_spoof_root.chosen, function(sub, index, eventLoop) {
-    if(index === 0) {
-        _system.views.mac_spoof_configure_station = textInput.makeWith({
-            minLength: 17,
-            maxLength: 17,
-            header: "MAC Address",
-            defaultText: "5",
-            defaultTextClear: false,
-    } else if(index === 1) {
-        print("configure ap")
-    }
-}, eventLoop);
-*/
-
-eventLoop.subscribe(_system.getView("scan_ap_configure").input, function(sub, str) {
-    gui.viewDispatcher.switchTo(_system.getView("configure"));
 });
 
-_system.setupViews({
-    root: submenu.makeWith({}, [
-        "Scanning",
-        "Deauth Sniff PMKID",
-        "Configure"
-    ]),
-    configure: submenu.makeWith({}, [
-        "MAC Address Spoofing",
-    ]),
-    scan_ap_confirm: dialog.makeWith({
-        header: "Scan Access Points",
-        text: "Scan for APs",
-        center: "Start",
-    }),
-    scan_ap_start: dialog.makeWith({
-        header: "Scanning",
-        text: "Scanning for APs...",
-        center: "Stop",
-    }),
-    scan_ap_show_ssid_list: null,
-    scan_ap_configure: textInput.makeWith({
-        minLength: 1,
-        maxLength: 4,
-        header: "Scan AP Timeout",
-        defaultText: "5",
-        defaultTextClear: false,
-    }),
-    scan_ap_no_results: dialog.makeWith({
-        text: "No Access Points Found",
-        center: "Back",
-    }),
-    scan_ap_options: submenu.makeWith({}, [
-        "Information",
-        "MAC Spoofing",
-    ]),
-    deauth_sniff_pmkid_confirm: dialog.makeWith({
-        header: "Deauth and Sniff PMKID",
-        text: "Deauth clients and sniff PMKID.",
-        center: "Start"
-    }),
-    deauth_sniff_pmkid_start: dialog.makeWith({
-        header: "Deauth and sniff PMKID",
-        text: "Sending deauth and sniffing...",
-        center: "Stop",
-    }),
-    mac_spoof_root: submenu.makeWith({}, [
-        "Station Address",
-        "Access Point Address",
-    ]),
-    mac_spoof_configure_station: null,
-    mac_spoof_configure_ap: null,
+_view.subscribe("scan_ap_configure", "input", function(sub, button) {
+    _view.show("configure");
 });
 
-_system.configureBackButton();
-
-eventLoop.subscribe(_system.getView("root").chosen, function (subscription, index, eventLoop) {
+// Main view
+_view.subscribe("root", "chosen", function(sub, index) {
     if(index === 0) {
-        gui.viewDispatcher.switchTo(_system.getView("scan_ap_confirm"));
+        _view.show("scan_ap_confirm");
     } else if(index === 1) {
-        gui.viewDispatcher.switchTo(_system.getview("deauth_sniff_pmkid_confirm"));
-    } else if(index === 2) {
-        gui.viewDispatcher.switchTo(_system.getView("configure"));
+        _view.show("configure");
     }
-}, eventLoop);
+});
 
-// Handle back button presses for various menus
+// start app
+_view.show("root");
+eventLoop.run()
 
-// run app
-gui.viewDispatcher.switchTo(_system.getView("root"));
-eventLoop.run();
