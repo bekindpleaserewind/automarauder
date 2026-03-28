@@ -34,6 +34,31 @@ let UtilitiesClass = {
         _utility.self = this;
     },
 
+    trim: function(str: string) {
+        let start: number = 0;
+        let end: number = str.length - 1;
+
+        while(start <= end) {
+            let c: string = str.slice(start, start + 1);
+            if(c === ' ' || c === '\r' || c === '\n' || c === '\t') {
+                start++;
+            } else {
+                break;
+            }
+        }
+
+        while(end >= start) {
+            let c:string = str.slice(end, end + 1);
+            if(c === ' ' || c === '\r' || c === '\n' || c === '\t') {
+                end--;
+            } else {
+                break;
+            }
+        }
+
+        return str.slice(start, end + 1);
+    },
+
     splitByNewLine: function(str: string): string[] {
         const lines: string[] = [];
         let start = 0;
@@ -42,7 +67,7 @@ let UtilitiesClass = {
         
         while (nextNewline !== -1) {
             lines.push(str.slice(start, nextNewline));
-            start = nextNewline + 1;
+            start = nextNewline + 2;
             nextNewline = str.indexOf('\r\n', start);
         }
         
@@ -85,21 +110,41 @@ let UtilitiesClass = {
 
 let ViewClass = {
     init: function() {
+        this._timer = null;
         this._navMap = {};
-        this._navCleanup = {};
-        this._back = null;
+
+        this._back = eventLoop.subscribe(gui.viewDispatcher.navigation, function(sub, item) {
+            const currentView = _view.current();
+            if(currentView) {
+                if(_view._navMap[currentView].back !== null) {
+                    if(_view._navMap[currentView].callback !== null) {
+                        _view._navMap[currentView].callback();
+                    }
+                    _view.show(_view._navMap[currentView].back);
+                } else {
+                    return;
+                }
+            }
+        }, eventLoop);
     },
 
-    addView: function(source: string, target: string, view: Object, callback: Function) {
+    addView: function(source: string, back: string, view: Object, callback: Function) {
         this._navMap[source] = {
             source: source,
-            target: target,
+            back: back,
             view: view,
+            backView: null,
             callback: callback,
             connected: callback ? true : false,
             subscription: null,
             subscribed: false,
         }
+        return(this._navMap[source].view);
+    },
+
+    getView: function(source: string) {
+        let view = this.hasView(source);
+        return(view);
     },
 
     hasView: function(source: string) {
@@ -112,16 +157,22 @@ let ViewClass = {
     },
 
     subscribe: function(source: string, type: string, callback: any) {
+        if(this._navMap[source].subscribed) {
+            this._navMap[source].subscription.cancel();
+            this._navMap[source].subscription = null;
+            this._navMap[source].subscribed = false;
+        }
+
         let contract = _utility.getObjectProp(this._navMap[source].view, type)
+
         if(contract) {
             this._navMap[source].subscription = eventLoop.subscribe(contract, callback);
             this._navMap[source].subscribed = true;
         }
     },
 
-    // Cleanup action handler — maps action names to functions
-    cleanup: function(source: string) {
-        this._navMap[source].callback();
+    isSubscribed: function(source: string): boolean {
+       return(this._navMap[source].subscribed);
     },
 
     remove: function(source: string) {
@@ -141,7 +192,7 @@ let ViewClass = {
         let current = gui.viewDispatcher.currentView;
 
         for(let key in this._navMap) {
-            if(this._navMap[key] === current) {
+            if(this._navMap[key].view === current) {
                 return key;
             }
         }
@@ -151,40 +202,16 @@ let ViewClass = {
 
     show: function(source: string) {
         if(this._navMap[source].view !== null) {
-            print("Switching to view ", source);
             gui.viewDispatcher.switchTo(this._navMap[source].view);
-        } else {
-            print("It's NULL");
         }
     },
 
-    back: function() {
-        if(this._back) {
-            this._back.cancel();
-            this._back = null;
+    timer: function(timeout: number, callback: any) {
+        if(this._timer) {
+            this._timer.cancel();
+            this._timer = null;
         }
-
-        this._back = eventLoop.subscribe(gui.viewDispatcher.navigation, function(sub, item) {
-            let source = this.current();
-
-            // safe failback
-            if(source === null) {
-                eventLoop.stop();
-                return
-            }
-
-            if(this._navMap[source].connected !== null) {
-                this._navMap[source].callback();
-            }
-
-            if(this._navMap[source].target !== null) {
-                gui.viewDispatcher.switchTo(this._navMap[source].target);
-            }
-        });
-    },
-
-    timer: function(timeout: number, callback: Function) {
-        this.subscribe(eventLoop.timer("oneshot", timeout), callback);
+        this._timer = eventLoop.subscribe(eventLoop.timer("oneshot", timeout), callback);
     },
 };
 
@@ -285,29 +312,31 @@ let WifiClass = {
         this.serial.write("list -a");
 
         let data: string = this.serial.expect("list -a");
-        print("<DEBUG>");
-        print(data);
-        print("</ENDDEBUG>");
         let lines: string[] = this.utility.splitByNewLine(data);
 
         for(let i = 1; i < lines.length-2; i++) {
             let line = lines[i].slice(1, lines[i].length);
+            if(line.length > 0) {
+                let index = parseInt(line.slice(0, line.indexOf(']')));
 
-            let index = parseInt(line.slice(1, line.indexOf(']')));
+                let s = line.slice(line.indexOf('CH:')+3, line.length);
+                let channel: number = parseInt(s.slice(0, line.indexOf(']')));
 
-            let s = line.slice(line.indexOf('CH:')+3, line.length);
-            let channel: number = parseInt(s.slice(0, line.indexOf(']')));
+                if(channel > 0) {
+                    let ssid: string = line.slice(line.indexOf('] ') + 2, line.length);
+                    ssid = ssid.slice(0, ssid.indexOf(' -'));
 
-            let ssid: string = line.slice(line.indexOf(' ')+1, line.length);
-            ssid = ssid.slice(0, ssid.indexOf(' -'));
+                    if(ssid) {
+                        this.apListByIndex[index] = {
+                            index: index,
+                            channel: channel,
+                            ssid: ssid,
+                        };
 
-            this.apListByIndex[index] = {
-                index: index,
-                channel: channel,
-                ssid: ssid,
-            };
-
-            this.apListBySSID[ssid] = this.apListByIndex[index];
+                        this.apListBySSID[ssid] = this.apListByIndex[index];
+                    }
+                }
+            }
         }
 
         this.checkAndCloseSerial();
@@ -317,7 +346,6 @@ let WifiClass = {
         this.checkAndOpenSerial();
         this.serial.write("scanap");
         this.serial.expect("scanap");
-        print("Scanning initiated")
         this.checkAndCloseSerial();
     },
 
@@ -325,7 +353,6 @@ let WifiClass = {
         this.checkAndOpenSerial();
         this.serial.write("stopscan");
         this.serial.expect("stopscan");
-        print("Scanning terminated");
         this.checkAndCloseSerial();
     },
 
@@ -366,14 +393,12 @@ let WifiClass = {
                 this.selected = false;
                 this.index = -1;
             }
-            print(data);
         }
     },
 
     cloneApMac: function() {
         this.serial.write("cloneapmac -a " + this.index.toString());
         let data = this.serial.expect("cloneapmac -a");
-        print(data);
     },
 
     reboot: function() {
@@ -475,69 +500,46 @@ let ScanAPClass = {
     },
 
     displaySSIDs: function() {
-        if(!_view.hasView('scan_ap_show_ssid_list')) {
-            print("we do not have the scan_ap_show_ssid_list view")
-            _view.addView("scan_ap_show_ssid_list", null, submenu.makeWith({}, _scanap.ssidList), null);
-        }
+        if(_scanap.ssidList.length > 0) {
+            _view.getView("scan_ap_show_ssid_list").setChildren(_scanap.ssidList);
 
-        _view.subscribe("scan_ap_show_ssid_list", "chosen", function(sub, index: number) {
-            _scanap.selectedSsid = _scanap.ssidList[index];
+            _view.subscribe("scan_ap_show_ssid_list", "chosen", function(sub, index: number) {
+                _scanap.selectedSsid = _scanap.ssidList[index];
 
-            _view.subscribe("scan_ap_options", "chosen", function(sub, index: number) {
-                if(!_view.hasView('scan_ap_mac_spoofing_enable')) {
-                    _view.addView("scan_ap_mac_spoofing_enable", null, dialog.makeWith({
-                        header: "MAC Spoofing",
-                        text: _scanap.selectedSsid,
-                        left: "Enable",
-                        right: "Disable",
-                        center: "Back",
-                    }), null);
-                }
+                _view.subscribe("scan_ap_options", "chosen", function(sub, index: number) {
+                    if(index === 0) {
+                        if(!_view.isSubscribed("scan_ap_mac_spoofing_enable")) {
+                            _view.subscribe("scan_ap_mac_spoofing_enable", "input", function(sub, button: string, _gui) {
+                                if(button === "right") {
+                                    _view.show("loading");
+                                    _wifi.reboot();
+                                    _view.timer(_wifi.getRebootTimeout() * 1000, function(sub) {
+                                        _view.show("scan_ap_mac_spoofing_status_disabled");
+                                    });
+                                } else if(button === "center") {
+                                    _view.show("scan_ap_options");
+                                } else if(button === "left") {
+                                    _wifi.selectAp(_scanap.apsBySSID[_scanap.selectedSsid].index);
+                                    _wifi.cloneApMac();
+                                    _view.show("scan_ap_mac_spoof_success")
+                                }
+                            });
+                        }
 
-                _view.subscribe("scan_ap_mac_spoofing_enable", "input", function(sub, button: string, _gui) {
-                    if(button === "right") {
-                        print("Disabled MAC Spoofing");
-                        _wifi.reboot();
-                        _view.addView("scan_ap_mac_spoofing_status_disabled", null, dialog.makeWith({
-                            header: "Successful!",
-                            text: "Marauder was Reset",
-                            center: "Back",
-                        }), null);
-
-                        _view.subscribe("scan_ap_mac_spoofing_status_disabled", "input", function(sub, button: string, _gui) {
-                            if(button === "center") {
-                                _view.show('scan_ap_mac_spoofing_enable');
-                            }
-                        });
-
-                        _view.timer(_wifi.getRebootTimeout() * 1000, function(sub) {
-                            _view.show("scan_ap_mac_spoofing_status_disabled");
-                        });
-
-                        _view.show("loading");
-                    } else if(button === "center") {
+                        _view.getView("scan_ap_mac_spoofing_enable").set("text", _scanap.selectedSsid)
                         _view.show("scan_ap_mac_spoofing_enable");
-                    } else if(button === "left") {
-                        print("MAC Spoofing")
-                        print("SSID ", _scanap.apsBySSID[_scanap.selectedSsid].ssid);
-                        print("INDEX ", _scanap.apsBySSID[_scanap.selectedSsid].index);
-                        print("CHANNEL ", _scanap.apsBySSID[_scanap.selectedSsid].channel);
-                        _wifi.selectAp(_scanap.apsBySSID[_scanap.selectedSsid].index);
-                        _wifi.cloneApMac();
                     }
-                });
+                }, eventLoop);
 
-                _view.show("scan_ap_mac_spoofing_enable");
-            }, eventLoop);
+                _view.show("scan_ap_options");
+            });
 
-            _view.show("scan_ap_options");
-        });
-
-        _view.show("scan_ap_show_ssid_list");
+            _view.show("scan_ap_show_ssid_list");
+        } else {
+            _view.show("scan_ap_not_found");
+        }
     },
 };
-
-print("main");
 
 let _serial = (Object as any).create(SerialClass);
 _serial.init();
@@ -554,34 +556,37 @@ _wifi.init();
 let _scanap = (Object as any).create(ScanAPClass);
 _scanap.init();
 
-// Build base views
-print("Build libraries");
+_view.addView("quit", null, dialog.makeWith({
+    header: "Automarauder",
+    text: "Are you sure you want to quit?",
+    left: "Exit",
+    right: "Stay",
+}), null);
 
-_view.addView("root", null, submenu.makeWith({}, [
+_view.addView("root", "quit", submenu.makeWith({}, [
     "Scanning",
-    "Configure"
+    "Configure",
+    "Reset",
 ]), null);
 
 _view.addView("configure", "root", submenu.makeWith({}, [
-    "MAC Address Spoofing",
+    "Scanning Timeout",
 ]), function() {
     _scanap.stop();
 });
 
-_view.addView("scan_ap_confirm", "root", dialog.makeWith({
-    header: "Scan Access Points",
-    text: "Scan for APs",
-    center: "Start",
-}), function() {
-    _scanap.stop();
-});
-
-_view.addView("scan_ap_configure", "configure",textInput.makeWith({
+_view.addView("scan_ap_timeout_configure", "configure", textInput.makeWith({
     minLength: 1,
     maxLength: 4,
     header: "Scan AP Timeout",
     defaultText: "5",
     defaultTextClear: false,
+}), null);
+
+_view.addView("scan_ap_confirm", "root", dialog.makeWith({
+    header: "Scan Access Points",
+    text: "Scan for APs",
+    center: "Start",
 }), null);
 
 _view.addView("scan_ap_start", "scan_ap_confirm", dialog.makeWith({
@@ -592,37 +597,64 @@ _view.addView("scan_ap_start", "scan_ap_confirm", dialog.makeWith({
     _scanap.stop();
 });
 
-_view.addView("scan_ap_no_results", "scan_ap_confirm", dialog.makeWith({
+_view.addView("scan_ap_options", "scan_ap_show_ssid_list", submenu.makeWith({}, [
+    "MAC Spoofing",
+]), null);
+
+_view.addView("scan_ap_mac_spoofing_enable", "scan_ap_options", dialog.makeWith({
+    header: "MAC Spoofing",
+    text: "",
+    left: "Enable",
+    right: "Reset",
+    center: "Back",
+}), null);
+
+_view.addView("scan_ap_mac_spoof_success", "scan_ap_mac_spoofing_enable", dialog.makeWith({
+    text: "Spoof MAC Success!",
+    center: "Back",
+}), null);
+
+_view.addView("scan_ap_mac_spoofing_status_disabled", "scan_ap_mac_spoofing_enable", dialog.makeWith({
+    header: "Successful!",
+    text: "Marauder was Reset",
+    center: "Back",
+}), null);
+
+_view.addView("root_reset", "root", dialog.makeWith({
+    header: "Successful!",
+    text: "Marauder was Reset",
+    center: "Back",
+}), null);
+
+_view.addView("scan_ap_not_found", "scan_ap_confirm", dialog.makeWith({
+    text: "Access Point Not Found",
+    center: "Back",
+}), null);
+
+_view.addView("scan_ap_show_ssid_list", "scan_ap_confirm", submenu.makeWith({}, []), null);
+
+_view.addView("loading", null, loadingView.make(), null);
+
+/*
+_view.addView("scan_ap_no_results", "scan_ap_confirm", "scan_ap_confirm", dialog.makeWith({
     text: "No Access Points Found",
     center: "Back",
 }), null);
 
-_view.addView("scan_ap_options", "scan_ap_show_ssid_list", submenu.makeWith({}, [
-    "Information",
-    "MAC Spoofing",
-]), null);
-
-_view.addView("mac_spoof_root", null, submenu.makeWith({}, [
+_view.addView("mac_spoof_root", null, "scan_ap_options", submenu.makeWith({}, [
     "Station Address",
     "Access Point Address",
 ]), null);
 
-_view.addView("loading", null, loadingView.make(), null);
-_view.addView("mac_spoof_configure_station", null, null, null);
-_view.addView("mac_spoof_configure_ap", null, null, null);
-_view.addView("scan_ap_mac_spoofing_enable", null, null, null);
-_view.addView("scan_ap_show_ssid_list", null, null, null);
-
-print("Added views");
+_view.addView("mac_spoof_configure_station", null, null, null, null);
+_view.addView("mac_spoof_configure_ap", null, null, null, null);
+_view.addView("scan_ap_mac_spoofing_enable", null, null, null, null);
+_view.addView("scan_ap_show_ssid_list", null, null, null, null);
+*/
 
 // Subscriptions for views
-_view.subscribe("scan_ap_confirm", "input", function(subscription, button) {
-    if(button === "center") {
-        _view.show("scan_ap_confirm");
-        _scanap.start();
-    }
-});
 
+/*
 // start
 _view.subscribe("scan_ap_start", "input", function(sub, button,) {
     if(button === "center") {
@@ -630,20 +662,63 @@ _view.subscribe("scan_ap_start", "input", function(sub, button,) {
         _view.show("scan_ap_confirm");
     }
 });
+*/
 
-// configure menu 
-_view.subscribe("configure", "chosen", function(sub, index, eventLoop) {
-    if(index === 0) {
-        print("TBD");
-    } else if(index === 1) {
-        _view.show("scan_ap_configure");
-    } else if(index === 2) {
-        _view.show("mac_spoof_root");
+_view.subscribe("quit", "input", function(sub, button) {
+    if(button === "right") {
+        _view.show("root");
+    } else if(button === "left") {
+        eventLoop.stop();
     }
 });
 
-_view.subscribe("scan_ap_configure", "input", function(sub, button) {
+_view.subscribe("configure", "chosen", function(sub, index, eventLoop) {
+    if(index === 0) {
+        _view.show("scan_ap_timeout_configure");
+    }
+});
+
+_view.subscribe("scan_ap_timeout_configure", "input", function(sub, item) {
+    _scanap.timeout = parseInt(item);
     _view.show("configure");
+});
+
+_view.subscribe("scan_ap_confirm", "input", function(sub, button) {
+    if(button === "center") {
+        _view.show("scan_ap_start");
+        _scanap.start();
+    }
+});
+
+_view.subscribe("scan_ap_mac_spoof_success", "input", function(sub, button) {
+    if(button === "center") {
+        _view.show("scan_ap_mac_spoofing_enable");
+    }
+});
+
+_view.subscribe("scan_ap_start", "input", function(sub, button) {
+    if(button === "center") {
+        _view.show("scan_ap_confirm");
+        _scanap.stop();
+    }
+});
+
+_view.subscribe("scan_ap_mac_spoofing_status_disabled", "input", function(sub, button: string, _gui) {
+    if(button === "center") {
+        _view.show('scan_ap_confirm');
+    }
+});
+
+_view.subscribe("scan_ap_not_found", "input", function(sub, button) {
+    if(button === "center") {
+        _view.show("scan_ap_confirm");
+    }
+});
+
+_view.subscribe("root_reset", "input", function(sub, button: string, _gui) {
+    if(button === "center") {
+        _view.show('root');
+    }
 });
 
 // Main view
@@ -652,6 +727,12 @@ _view.subscribe("root", "chosen", function(sub, index) {
         _view.show("scan_ap_confirm");
     } else if(index === 1) {
         _view.show("configure");
+    } else if(index === 2) {
+        _view.show("loading");
+        _wifi.reboot();
+        _view.timer(_wifi.getRebootTimeout() * 1000, function(sub) {
+            _view.show("root_reset");
+        });
     }
 });
 
