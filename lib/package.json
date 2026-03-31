@@ -8,12 +8,10 @@
     "author": "",
     "type": "commonjs",
     "scripts": {
-        "build": "tsc",
-        "post": "bash post.sh",
-        "mkdir": "node node_modules/@next-flip/fz-sdk-mntm/sdk.js mkdir",
-        "upload": "node node_modules/@next-flip/fz-sdk-mntm/sdk.js upload",
-        "run": "node node_modules/@next-flip/fz-sdk-mntm/sdk.js run"
-
+        "build": "tsc && npm run post",
+        "post": "bash post.sh dist/serial.js dist/util.js dist/view.js dist/wifi.js",
+        "mkdir": "node node_modules/@next-flip/fz-sdk-mntm/sdk.js mkdir /ext/apps/Scripts/AutoMarauder/lib",
+        "upload": "bash upload.sh"
     },
     "devDependencies": {
         "typescript": "*",

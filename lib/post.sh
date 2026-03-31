@@ -1,14 +1,14 @@
 #!/bin/bash
 
-sed -i 's/void 0/undefined/g' $1
-sed -i 's/^Object.defineProperty(exports.*$//g' $1
-sed -i 's/^let .* = undefined.*$//' $1
-sed -i 's/^import .*$//g' $1
-#sed -i 's/^const .* require.*$//g' $1
+for script in $@
+do
+    echo "$script"
+    sed -i 's/void 0/undefined/g' $script 
+    sed -i 's/^Object.defineProperty(exports.*$//g' $script
+    sed -i 's/^let .* = undefined.*$//' $script
+    sed -i 's/^import .*$//g' $script 
 
-grep -n "void \|__commonJS\|__export\|__defProp\|=>" $1 && echo "⚠ mJS incompatible patterns found (void)" \
-  || echo "✅ Bundle looks clean (void)"
-grep -n "^Object\\.defineProperty(exports.*$" $1 && echo "⚠ mJS incompatible patterns found (Object.defineProperty)" \
-  || echo "✅ Bundle looks clean (Object.defineProperty)"
-grep -n "^exports\\." $1 && echo "⚠ mJS incompatible patterns found (exports)" \
-  || echo "✅ Bundle looks clean (exports)"
+    grep -n "void \|__commonJS\|__export\|__defProp\|=>" $script && echo "⚠ mJS incompatible patterns found (void)" || echo "✅ Bundle looks clean (void)"
+    grep -n "^Object\\.defineProperty(exports.*$" $script && echo "⚠ mJS incompatible patterns found (Object.defineProperty)" || echo "✅ Bundle looks clean (Object.defineProperty)"
+    grep -n "^exports\\." $script && echo "⚠ mJS incompatible patterns found (exports)" || echo "✅ Bundle looks clean (exports)"
+done 
