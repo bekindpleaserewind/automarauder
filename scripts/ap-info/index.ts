@@ -236,7 +236,7 @@ View.subscribe("scan_ap_options", "chosen", function(sub, index: number) {
     }
 });
 
-View.subscribe("scan_ap_information_essid", "input", function(sub, button) { print("scan_ap_information_essid"); View.show("scan_ap_information"); });
+View.subscribe("scan_ap_information_essid", "input", function(sub, button) { View.show("scan_ap_information"); });
 View.subscribe("scan_ap_information_bssid", "input", function(sub, button) { View.show("scan_ap_information"); });
 View.subscribe("scan_ap_information_rssi", "input", function(sub, button) { View.show("scan_ap_information"); });
 View.subscribe("scan_ap_information_security", "input", function(sub, button) { View.show("scan_ap_information"); });
