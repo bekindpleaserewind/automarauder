@@ -1,7 +1,7 @@
 {
     build: {
         // Where to put the compiled file
-        output: "dist/automarauder.js",
+        output: "dist/bundle.js",
 
         // Whether to reduce the final file size at the cost of readability and
         // clarity of error messages
@@ -15,9 +15,9 @@
     upload: {
         // Where to grab the file from. If you're not doing any extra processing
         // after the SDK, this should match `build.output`
-        input: "dist/automarauder.js",
+        input: "dist/bundle.js",
 
         // Where to put the file on the device
-        output: "/ext/apps/Scripts/automarauder.js",
+        output: "/ext/apps/Scripts/bundle.js",
     },
 }

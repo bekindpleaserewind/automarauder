@@ -1,0 +1,22 @@
+{
+    "name": "@automarauder/lib",
+    "version": "1.0.0",
+    "description": "",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "keywords": [],
+    "author": "",
+    "type": "commonjs",
+    "scripts": {
+        "build": "tsc",
+        "post": "bash post.sh",
+        "mkdir": "node node_modules/@next-flip/fz-sdk-mntm/sdk.js mkdir",
+        "upload": "node node_modules/@next-flip/fz-sdk-mntm/sdk.js upload",
+        "run": "node node_modules/@next-flip/fz-sdk-mntm/sdk.js run"
+
+    },
+    "devDependencies": {
+        "typescript": "*",
+        "@next-flip/fz-sdk-mntm": "*"
+    }
+}

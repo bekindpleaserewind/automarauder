@@ -5,17 +5,18 @@
         "module": "CommonJS",
         "noLib": true,
         "target": "es2015",
-        "types": [],
+        "declaration": true,
+        "types": []
     },
     "files": [
-        "./node_modules/@next-flip/fz-sdk-mntm/global.d.ts",
+        "./node_modules/@next-flip/fz-sdk-mntm/global.d.ts"
     ],
     "include": [
         "./**/*.ts",
-        "./**/*.js",
+        "./**/*.js"
     ],
     "exclude": [
         "./node_modules/**/*",
-        "dist/**/*",
-    ],
+        "dist/**/*"
+    ]
 }
