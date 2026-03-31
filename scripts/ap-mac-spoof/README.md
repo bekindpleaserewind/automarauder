@@ -1,8 +1,8 @@
-# AutoMarauder AP Info
+# AutoMarauder AP MAC Spoof
 
-The AutoMarauder AP Info program is developed in Typescript and built for the mJS JavaScript engine on the Flipper Zero that provides WiFi access point scanning via the [Marauder firmware](https://github.com/justcallmekoko/ESP32Marauder) on a Flipper Zero WiFi dev board.
+The AutoMarauder AP MAC Spoof program is developed in Typescript and built for the mJS JavaScript engine on the Flipper Zero that provides WiFi access point MAC address spoofing via the [Marauder firmware](https://github.com/justcallmekoko/ESP32Marauder) on a Flipper Zero WiFi dev board.
 
-AutoMarauder lets you scan nearby WiFi access points, browse discovered SSIDs, inspect detailed per-AP information (BSSID, RSSI, security type, frame counts, stations, EAPOL), all from the Flipper Zero UI. without the need to manually interact with Marauder directly.
+AutoMarauder AP MAC Spoof lets you scan nearby WiFi access points, browse discovered SSIDs, and spoof the MAC address of a selected access point, all from the Flipper Zero UI. without the need to manually interact with Marauder directly.
 
 ---
 
@@ -11,13 +11,13 @@ AutoMarauder lets you scan nearby WiFi access points, browse discovered SSIDs, i
 - [Node.js](https://nodejs.org/) ≥ 18
 - A Flipper Zero running [Momentum firmware](https://github.com/Next-Flip/Momentum-Firmware) with the `@next-flip/fz-sdk-mntm` SDK
 - A Flipper Zero WiFi dev board flashed with [Marauder firmware](https://github.com/justcallmekoko/ESP32Marauder)
-- The **AutoMarauder shared library** installed on the Flipper Zero (see below)
+- The **AutoMarauder Shared Library** installed on the Flipper Zero (see below)
 
 ---
 
 ## Dependency: AutoMarauder Shared Library
 
-AutoMarauder AP Info depends on the **AutoMarauder Shared Library**, which provides the runtime modules loaded at startup:
+AutoMarauder AP MAC Spoof depends on the **AutoMarauder Shared Library**, which provides the runtime modules loaded at startup:
 
 | Module | Path on device |
 |---|---|
@@ -26,13 +26,13 @@ AutoMarauder AP Info depends on the **AutoMarauder Shared Library**, which provi
 | `View` | `/ext/apps/Scripts/AutoMarauder/lib/view.js` |
 | `Wifi` | `/ext/apps/Scripts/AutoMarauder/lib/wifi.js` |
 
-These libraries **must be installed to the Flipper Zero separately** before running AutoMarauder. The application loads them at runtime using mJS `load()` calls and will crash on startup if any of them are missing.
+These libraries **must be installed to the Flipper Zero separately** before running AutoMarauder AP MAC Spoof. The application loads them at runtime using mJS `load()` calls and will crash on startup if any of them are missing.
 
 Refer to the **AutoMarauder Shared Library `README.md`** for full instructions on how to build and install the shared library to your device.
 
 ### TypeScript Definitions
 
-To compile AutoMarauder, the TypeScript type definitions for the shared library must be present locally. Copy them from the built library output into this project's `lib/` directory:
+To compile AutoMarauder AP MAC Spoof, the TypeScript type definitions for the shared library must be present locally. Copy them from the built library output into this project's `lib/` directory:
 
 ```bash
 cp "/path/to/lib/dist/src/"*.d.ts ./lib/
@@ -99,7 +99,7 @@ This transfers the bundled script and any supporting assets to the correct locat
 
 - **AP Scanning** — Scan for nearby WiFi access points with a configurable timeout
 - **SSID Browser** — Browse discovered SSIDs in a scrollable list
-- **AP Information** — Inspect per-AP details: ESSID, BSSID, RSSI, security type, selected state, frame count, station count, and EAPOL count
+- **MAC Spoofing** — Spoof the MAC address of a selected access point
 - **Scan Timeout Configuration** — Adjust the scan duration from the Configure menu
 - **Marauder Reset** — Reboot the Marauder firmware from within the app
 - **Navigation** — Full back-navigation support across all views
