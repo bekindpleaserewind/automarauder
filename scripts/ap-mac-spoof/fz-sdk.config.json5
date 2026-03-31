@@ -18,6 +18,6 @@
         input: "dist/bundle.js",
 
         // Where to put the file on the device
-        output: "/ext/apps/Scripts/AutoMarauder/ap-info.js",
+        output: "/ext/apps/Scripts/AutoMarauder/ap-mac-spoof.js",
     },
 }
