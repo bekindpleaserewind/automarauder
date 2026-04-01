@@ -17,6 +17,9 @@ let Wifi = {
     selected: false,
     rebooting: false,
     rebootTimeout: 5,
+    callback: null,
+    running: true,
+    timerFunc: null,
 
     setIndex: function(index: number) {
         Wifi.index = index;
@@ -162,6 +165,18 @@ let Wifi = {
     cloneApMac: function() {
         Serial.write("cloneapmac -a " + Wifi.index.toString());
         let data = Serial.expect("cloneapmac -a");
+    },
+
+    stopSniffPMKID: function() {
+        Wifi.stopScanAps();
+        Wifi.running = false;
+    },
+
+    startSniffPMKID: function() {
+        Wifi.running = true;
+        Serial.open();
+        Serial.write('sniffpmkid -c ' + Wifi.apListByIndex[Wifi.index].channel.toString() + ' -l');
+        Serial.close();
     },
 
     reboot: function() {

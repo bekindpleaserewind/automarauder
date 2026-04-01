@@ -98,10 +98,14 @@ let View = {
     },
 
     timer: function(timeout: number, callback: any) {
+        View.cancelTimer();
+        View._timer = eventLoop.subscribe(eventLoop.timer("oneshot", timeout), callback);
+    },
+
+    cancelTimer: function() {
         if(View._timer) {
             View._timer.cancel();
             View._timer = null;
         }
-        View._timer = eventLoop.subscribe(eventLoop.timer("oneshot", timeout), callback);
-    },
+    }
 };
