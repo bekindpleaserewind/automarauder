@@ -11,6 +11,8 @@ interface WifiApInfoObj {
 };
 
 let Wifi = {
+    ACTIVE_DEAUTH: 1000,
+    DISABLE_DEAUTH: 1100,
     apListByIndex: [],
     apListBySSID: {},
     index: -1,
@@ -172,10 +174,14 @@ let Wifi = {
         Wifi.running = false;
     },
 
-    startSniffPMKID: function() {
+    startSniffPMKID: function(deauth: number) {
         Wifi.running = true;
         Serial.open();
-        Serial.write('sniffpmkid -c ' + Wifi.apListByIndex[Wifi.index].channel.toString() + ' -l');
+        if(deauth === Wifi.ACTIVE_DEAUTH) {
+            Serial.write('sniffpmkid -c ' + Wifi.apListByIndex[Wifi.index].channel.toString() + ' -d -l');
+        } else {
+            Serial.write('sniffpmkid -c ' + Wifi.apListByIndex[Wifi.index].channel.toString() + ' -l');
+        }
         Serial.close();
     },
 
