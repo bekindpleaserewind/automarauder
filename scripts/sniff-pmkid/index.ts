@@ -3,7 +3,6 @@ import * as gui from "@next-flip/fz-sdk-mntm/gui";  // this import is required b
 import * as loadingView from "@next-flip/fz-sdk-mntm/gui/loading";
 import * as dialog from "@next-flip/fz-sdk-mntm/gui/dialog";
 import * as textInput from "@next-flip/fz-sdk-mntm/gui/text_input";
-import * as textBox from "@next-flip/fz-sdk-mntm/gui/text_box";
 import * as submenu from "@next-flip/fz-sdk-mntm/gui/submenu";
 import * as serial from "@next-flip/fz-sdk-mntm/serial";
 
@@ -164,12 +163,12 @@ View.addView("scan_ap_not_found", "scan_ap_confirm", dialog.makeWith({
     center: "Back",
 }), null);
 
+View.addView("scan_ap_show_ssid_list", "scan_ap_confirm", submenu.makeWith({}, []), null);
+
 View.addView("sniff_pmkid_status", "sniff_pmkid_confirm", submenu.makeWith({}, []), function() {
     Wifi.stopSniffPMKID();
     View.show("sniff_pmkid_confirm");
 });
-
-View.addView("scan_ap_show_ssid_list", "scan_ap_confirm", submenu.makeWith({}, []), null);
 
 View.addView("sniff_pmkid_confirm", "scan_ap_options", dialog.makeWith({
     text: "PMKID Sniffing",
