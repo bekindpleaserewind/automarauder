@@ -35,7 +35,7 @@ Refer to the **AutoMarauder Shared Library `README.md`** for full instructions o
 To compile AutoMarauder, the TypeScript type definitions for the shared library must be present locally. Copy them from the built library output into this project's `lib/` directory:
 
 ```bash
-cp "/path/to/lib/dist/src/"*.d.ts ./lib/
+cp /path/to/lib/dist/*.d.ts /path/to/script/lib/
 ```
 
 > These `.d.ts` files are generated when you build the AutoMarauder Shared Library. They are not bundled with this AutoMarauder script and must be copied manually before running the build.
