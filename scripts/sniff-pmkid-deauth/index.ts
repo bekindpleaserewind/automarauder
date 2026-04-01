@@ -226,7 +226,7 @@ View.subscribe("scan_ap_not_found", "input", function(sub, button) {
 
 View.subscribe("sniff_pmkid_confirm", "input", function(sub, button) {
     if(button === "left") {
-        Wifi.startSniffPMKID(Wifi.DISABLE_DEAUTH);
+        Wifi.startSniffPMKID(Wifi.ACTIVE_DEAUTH);
         View.show("sniff_pmkid_running");
     } else if(button === "right") {
         Wifi.stopSniffPMKID();
