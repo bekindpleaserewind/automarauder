@@ -185,6 +185,13 @@ let Wifi = {
         Serial.close();
     },
 
+    startCloneApSpam: function() {
+        Wifi.running = true;
+        Serial.open();
+        Serial.write("attack -t beacon -a");
+        Serial.close();
+    },
+
     reboot: function() {
         if(!Wifi.rebooting) {
             Serial.open();
