@@ -1,8 +1,8 @@
-# AutoMarauder Sniff PMKID
+# AutoMarauder Sniff PMKID Deauth
 
 The AutoMarauder Sniff PMKID program is developed in Typescript and built for the mJS JavaScript engine on the Flipper Zero that provides passive PMKID sniffing via the [Marauder firmware](https://github.com/justcallmekoko/ESP32Marauder) on a Flipper Zero WiFi dev board.
 
-AutoMarauder Sniff PMKID lets you perform a passive sniffing attack against PMKIDs from nearby WiFi access points, all from the Flipper Zero UI. without the need to manually interact with Marauder directly.
+AutoMarauder Sniff PMKID Deauth lets you perform a sniffing attack against PMKIDs while performing a deauth attack from nearby WiFi access points, all from the Flipper Zero UI. without the need to manually interact with Marauder directly.
 
 ---
 

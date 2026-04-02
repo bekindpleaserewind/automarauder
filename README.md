@@ -12,6 +12,11 @@ The AutoMarauder suite is organized into a shared library and a collection of ap
 |---|---|---|
 | [AutoMarauder Shared Library](#automarauder-shared-library) | Library | Core runtime modules required by all AutoMarauder scripts |
 | [AutoMarauder AP Info](#automarauder-ap-info) | Script | Scan and inspect nearby WiFi access points |
+| [AutoMarauder AP Clone Spam](#automarauder-ap-clone-spam) | Script | Perform a beacon spam attack by cloning a selected access point |
+| [AutoMarauder AP MAC Spoof](#automarauder-ap-mac-spoof) | Script | Spoof the MAC address of a selected access point |
+| [AutoMarauder Deauth Flood](#automarauder-deauth-flood) | Script | Perform a deauthentication flood attack against a selected access point |
+| [AutoMarauder Sniff PMKID](#automarauder-sniff-pmkid) | Script | Perform a passive sniffing attack against PMKIDs |
+| [AutoMarauder Sniff PMKID Deauth](#automarauder-sniff-pmkid-deauth) | Script | Perform PMKID sniffing with active deauthentication |
 
 ---
 
@@ -46,6 +51,46 @@ The shared library is the foundation of the AutoMarauder suite. It provides the 
 A Flipper Zero script that provides WiFi access point scanning via Marauder, letting you browse discovered SSIDs and inspect detailed per-AP information (BSSID, RSSI, security type, frame counts, stations, EAPOL) — all from the Flipper Zero UI.
 
 See the `README.md` in the AP Info directory for full build and deployment instructions.
+
+---
+
+### AutoMarauder AP Clone Spam
+
+A Flipper Zero script that performs a beacon spam attack by cloning a selected access point with spaces between the characters to look like valid access points — all from the Flipper Zero UI.
+
+See the `README.md` in the AP Clone Spam directory for full build and deployment instructions.
+
+---
+
+### AutoMarauder AP MAC Spoof
+
+A Flipper Zero script that scans for nearby access points and spoofs the MAC address of a selected access point — all from the Flipper Zero UI.
+
+See the `README.md` in the AP MAC Spoof directory for full build and deployment instructions.
+
+---
+
+### AutoMarauder Deauth Flood
+
+A Flipper Zero script that performs a deauthentication flood attack against a selected access point — all from the Flipper Zero UI.
+
+See the `README.md` in the Deauth Flood directory for full build and deployment instructions.
+
+---
+
+### AutoMarauder Sniff PMKID
+
+A Flipper Zero script that performs a passive sniffing attack against PMKIDs from nearby access points — all from the Flipper Zero UI.
+
+See the `README.md` in the Sniff PMKID directory for full build and deployment instructions.
+
+---
+
+### AutoMarauder Sniff PMKID Deauth
+
+A Flipper Zero script that performs PMKID sniffing with active deauthentication against nearby access points — all from the Flipper Zero UI.
+
+See the `README.md` in the Sniff PMKID Deauth directory for full build and deployment instructions.
 
 ---
 
