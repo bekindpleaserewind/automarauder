@@ -186,9 +186,14 @@ let Wifi = {
     },
 
     startCloneApSpam: function() {
-        Wifi.running = true;
         Serial.open();
         Serial.write("attack -t beacon -a");
+        Serial.close();
+    },
+
+    deauth: function() {
+        Serial.open();
+        Serial.write("attack -t deauth");
         Serial.close();
     },
 
